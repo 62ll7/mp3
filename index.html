@@ -73,6 +73,9 @@ const COUNTDOWN = 180;
 const LIVES_TOTAL = 3;
 const FIXED_CODE = "X4RLPJKC78HCZJCW";
 
+// ملف الأغنية لازم يكون في نفس المجلد باسم song.mp3
+const SONG_URL = "song.mp3";
+
 const floaters = document.getElementById('floaters');
 function spawnHeart(){
   const hearts = ["💗","💖","💘","💞","💓","💕"];
@@ -148,6 +151,11 @@ function failChallenge(msg){
 function successChallenge(){
   clearInterval(timerId);
   document.getElementById('step2').hidden = true;
+
+  // تشغيل الأغنية
+  const audio = new Audio(SONG_URL);
+  audio.play();
+
   const area = document.getElementById('resultArea');
   area.innerHTML = `
     <section class="section">
