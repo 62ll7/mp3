@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تمور أنس — سكري ملكي</title>
+<meta name="theme-color" content="#7a4b2f">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#faf6f2;--ink:#1c140e;--muted:#6b5b51;--card:#fff;--brand:#7a4b2f;--line:#efe7e1;--accent:#2e7d32}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Cairo",system-ui}
+  .wrap{min-height:100%;display:flex;flex-direction:column}
+  header{background:linear-gradient(180deg,#f6eee7,#efe7e1);border-bottom:1px solid var(--line)}
+  .container{max-width:920px;margin:0 auto;padding:16px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .logo{font-size:32px} h1{margin:0;color:var(--brand);font-size:22px}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(122,75,47,.06)}
+  .row{display:grid;gap:10px} .grid2{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  label{font-size:13px;color:var(--muted)}
+  input,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit}
+  textarea{min-height:88px;resize:vertical}
+  .totals{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1px dashed #b5804f;border-radius:10px;background:#fff6ee;font-weight:700}
+  .hint{font-size:12px;color:var(--muted)}
+  .btn{appearance:none;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;font-weight:700;color:#fff;background:linear-gradient(180deg,var(--brand),#5f3723);box-shadow:0 6px 14px rgba(122,75,47,.2)}
+  .btn.secondary{background:linear-gradient(180deg,#2e7d32,#1b5e20)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .status{margin-top:10px;font-size:14px}
+  @media (max-width:780px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="container">
+      <div class="brand">
+        <div class="logo">🌴</div>
+        <div>
+          <h1>تمور أنس — سكري ملكي</h1>
+          <div class="sub">الدفع عند الاستلام داخل الرياض — توصيل للبيت</div>
+        </div>
+      </div>
+      <div class="card">
+        <form id="orderForm" class="row" novalidate>
+          <div class="grid2">
+            <div>
+              <label>المنتج</label>
+              <input value="سكري ملكي" readonly>
+            </div>
+            <div>
+              <label for="qty">عدد الكراتين</label>
+              <input id="qty" type="number" min="1" step="1" value="1" required>
+            </div>
+          </div>
+
+          <div>
+            <label>المدينة</label>
+            <input value="الرياض" readonly>
+          </div>
+          <div>
+            <label>طريقة التسليم</label>
+            <input value="توصيل للبيت" readonly>
+          </div>
+
+          <div class="totals">
+            <div>الإجمالي: <span id="total">—</span> ر.س</div>
+            <div class="hint" id="shipNote">رسوم التوصيل 15 ر.س — مجانًا من 6 كراتين</div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label for="name">الاسم</label>
+              <input id="name" placeholder="اسمك الكامل" required>
+            </div>
+            <div>
+              <label for="phone">الجوال</label>
+              <input id="phone" placeholder="05XXXXXXXX" pattern="^(\+966|00966|0)?5\d{8}$" required>
+            </div>
+          </div>
+
+          <label for="address">العنوان التفصيلي (داخل الرياض)</label>
+          <textarea id="address" placeholder="الحي، الشارع، رقم البيت أو علامة فارقة" required></textarea>
+
+          <div class="grid2">
+            <button type="button" id="locBtn" class="btn secondary">📍 استخدمي موقعي الحالي</button>
+            <input id="location" readonly placeholder="إحداثيات (اختياري)">
+          </div>
+
+          <label for="notes">ملاحظات (اختياري)</label>
+          <textarea id="notes" placeholder="وقت مناسب للتسليم، تعليمات إضافية…"></textarea>
+
+          <button class="btn" id="submitBtn" type="submit">تأكيد الطلب</button>
+          <div id="status" class="status hint"></div>
+        </form>
+      </div>
+    </div>
+  </header>
+</div>
+
+<script>
+/* ===== إعدادات قابلة للتعديل ===== */
+const PRICE_PER_CARTON = 75;     // سعر سكري ملكي للكرتون (ر.س)
+const SHIPPING_FEE = 15;         // رسوم التوصيل داخل الرياض
+const FREE_SHIP_THRESHOLD = 6;   // من 6 كراتين فأكثر الشحن مجانًا
+const SCRIPT_URL = "PUT_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE"; // <<— حط رابط السكربت هنا
+/* ================================= */
+
+const qtyEl = document.getElementById('qty');
+const totalEl = document.getElementById('total');
+const shipNote = document.getElementById('shipNote');
+const statusEl = document.getElementById('status');
+const submitBtn = document.getElementById('submitBtn');
+
+function num(v){ return Number(v)||0; }
+function shippingFor(qty){ return qty >= FREE_SHIP_THRESHOLD ? 0 : SHIPPING_FEE; }
+function calc(){
+  const q = Math.max(1, num(qtyEl.value));
+  const total = PRICE_PER_CARTON * q + shippingFor(q);
+  totalEl.textContent = total.toLocaleString('ar-SA');
+  shipNote.textContent = q >= FREE_SHIP_THRESHOLD ? 'الشحن مجانًا 🎉' : `رسوم التوصيل ${SHIPPING_FEE} ر.س — مجانًا من ${FREE_SHIP_THRESHOLD} كراتين`;
+}
+qtyEl.addEventListener('input', calc); calc();
+
+// تحديد الموقع (اختياري) — يعمل على https (GitHub Pages آمن)
+document.getElementById('locBtn').addEventListener('click', () => {
+  const loc = document.getElementById('location');
+  if (!navigator.geolocation) return alert('المتصفح لا يدعم تحديد الموقع');
+  const btn = document.getElementById('locBtn');
+  btn.disabled = true; btn.textContent = 'جارِ تحديد الموقع…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude, longitude} = pos.coords;
+    loc.value = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    btn.textContent = '📍 تم إضافة الإحداثيات'; btn.disabled = false;
+  }, _=>{
+    alert('تعذّر تحديد الموقع. تأكد من السماح بالموقع.');
+    btn.textContent = '📍 استخدمي موقعي الحالي'; btn.disabled = false;
+  }, {enableHighAccuracy:true,timeout:10000,maximumAge:0});
+});
+
+// إرسال آمن إلى Google Apps Script (تخزين سرّي، بدون واتساب)
+document.getElementById('orderForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  statusEl.textContent = '';
+
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const location = document.getElementById('location').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+  const qty = Math.max(1, num(qtyEl.value));
+  const total = PRICE_PER_CARTON*qty + shippingFor(qty);
+
+  if(!name){ alert('الاسم مطلوب'); return; }
+  if(!/^(\+966|00966|0)?5\d{8}$/.test(phone)){ alert('رقم الجوال غير صحيح (05XXXXXXXX)'); return; }
+  if(!address){ alert('اكتب العنوان التفصيلي داخل الرياض'); return; }
+
+  submitBtn.disabled = true; submitBtn.textContent = 'جارِ إرسال الطلب…';
+
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        product: 'سكري ملكي',
+        price_per_carton: PRICE_PER_CARTON,
+        qty, city:'الرياض', delivery:'توصيل للبيت',
+        shipping_fee: shippingFor(qty),
+        total,
+        name, phone, address, notes, location
+      })
+    });
+    const data = await res.json().catch(()=> ({}));
+    if(res.ok && data.status === 'ok'){
+      statusEl.textContent = 'تم استلام طلبك بنجاح ✅ بنراجع الطلب ونتواصل معك على واتساب للتأكيد.';
+      // تفضيل المستخدم: حفظ بعض الخانات لتجربة رجوع ألطف
+      try{ localStorage.setItem('dates:name',name); localStorage.setItem('dates:phone',phone); localStorage.setItem('dates:addr',address); }catch{}
+      // تفريغ الكميات فقط
+      // document.getElementById('orderForm').reset(); // لو تبي تفرّغ النموذج كله
+    }else{
+      throw new Error('لم يتم الحفظ');
+    }
+  }catch(err){
+    statusEl.textContent = 'تعذّر الإرسال حاليًا. حاول لاحقًا أو تواصل معنا مباشرة.';
+  }finally{
+    submitBtn.disabled = false; submitBtn.textContent = 'تأكيد الطلب';
+  }
+});
+
+// تعبئة تلقائية من التخزين المحلي
+window.addEventListener('load', ()=>{
+  try{
+    document.getElementById('name').value = localStorage.getItem('dates:name') || '';
+    document.getElementById('phone').value = localStorage.getItem('dates:phone') || '';
+    document.getElementById('address').value = localStorage.getItem('dates:addr') || '';
+  }catch{}
+});
+</script>
+</body>
+</html>
